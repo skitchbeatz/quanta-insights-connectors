@@ -19,14 +19,30 @@
 - **Write protection layer**: `ToolAccessLevel` enum (READ/WRITE) on `ToolDefinition`, enforced at both `list_tools()` and `execute()` in `BaseConnector`
 - **Config**: `allow_writes=False` by default, per-connector mock mode flags
 - **Vault setup guide**: `docs/vault-setup.md` — step-by-step AppRole + policy creation
-- **Testing**: 42 passing unit tests (Bullhorn 6, Fathom 11, Sourcewhale 13, LinkedIn 6, write protection 6)
 - **Refactored**: All connectors use `_get_all_tools()` / `_execute_tool()` pattern
 
+### ✅ **Completed: Real API Clients, Webhook Receiver, CI/CD**
+- **Fathom API client** (`fathom/client.py`): Full async httpx client with rate limiting, pagination, retries
+- **Sourcewhale API client** (`sourcewhale/client.py`): Provisional async httpx client (endpoints unverified)
+- **Fathom webhook receiver** (`webhooks.py`): Starlette ASGI app with HMAC signature verification
+  - `POST /webhooks/fathom` — receives real-time meeting data
+  - `GET /webhooks/events` — lists recent events (monitoring)
+  - `GET /health` — health check
+  - In-memory `WebhookStore` with configurable capacity and auto-eviction
+- **CI/CD**: GitHub Actions workflows (`ci.yml` + `deploy.yml`)
+  - CI: lint (ruff), type check (mypy), test (pytest on 3.12 + 3.13), Docker build
+  - Deploy: builds + pushes to GHCR, deploys via SSH to homelab service runner
+- **Docker Compose**: Webhook service added (`--profile webhooks`)
+- **Testing**: 54 passing unit tests (Bullhorn 6, Fathom 11, Sourcewhale 13, LinkedIn 6, write protection 6, webhooks 12)
+
 ### 🔄 **Current State**
-- All tests passing (42/42)
+- All tests passing (54/54)
 - Docker container running successfully
 - MCP server initialized with 14 tools (2 Bullhorn + 5 Fathom + 5 Sourcewhale + 2 LinkedIn)
 - All connectors in mock mode — ready for real API integration
+- Real API clients built for Fathom and Sourcewhale (awaiting API keys)
+- Webhook receiver ready for Fathom real-time events
+- CI/CD pipeline ready (needs GitHub secrets configured)
 - Write operations blocked by default (read-only enforcement)
 - Sourcewhale models are **provisional** — will update when official API docs are obtained
 

@@ -66,6 +66,54 @@ services:
           memory: 256M
           cpus: '0.25'
 
+  # Webhook receiver (HTTP server for Fathom real-time events)
+  quanta-webhooks:
+    build:
+      context: .
+      target: production
+    container_name: quanta-insights-webhooks
+    restart: unless-stopped
+    profiles: ["webhooks"]  # Only start with --profile webhooks
+    
+    command: ["python", "-m", "quanta_insights.webhooks"]
+    
+    environment:
+      - LOG_LEVEL=DEBUG
+      - ENABLED_CONNECTORS=fathom
+      - FATHOM_MOCK_MODE=true
+      - WEBHOOK_PORT=8081
+      # - FATHOM_WEBHOOK_SECRET=${FATHOM_WEBHOOK_SECRET}
+    
+    ports:
+      - "8081:8081"
+    
+    volumes:
+      - ./src:/app/src:ro
+      - ./pyproject.toml:/app/pyproject.toml:ro
+    
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.quanta-webhooks.rule=Host(`quanta-insights.chateaumac.com`) && PathPrefix(`/webhooks`)"
+      - "traefik.http.routers.quanta-webhooks.entrypoints=websecure"
+      - "traefik.http.routers.quanta-webhooks.tls.certresolver=letsencrypt"
+      - "traefik.http.services.quanta-webhooks.loadbalancer.server.port=8081"
+    
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:8081/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: '0.25'
+        reservations:
+          memory: 128M
+          cpus: '0.1'
+
   # Optional: Add a development shell service
   dev-shell:
     build:

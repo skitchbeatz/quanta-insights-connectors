@@ -1,0 +1,130 @@
+name: Deploy to Homelab
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "Deployment environment"
+        required: true
+        default: "production"
+        type: choice
+        options:
+          - production
+          - staging
+
+# Only one deploy at a time
+concurrency:
+  group: deploy-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  # Run CI checks first
+  ci:
+    uses: ./.github/workflows/ci.yml
+
+  deploy:
+    name: Deploy to Service Runner
+    runs-on: ubuntu-latest
+    needs: [ci]
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      # Login to GitHub Container Registry
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # Build and push Docker image
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          target: production
+          push: true
+          tags: |
+            ghcr.io/${{ github.repository }}:latest
+            ghcr.io/${{ github.repository }}:${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      # Deploy to homelab service runner via SSH
+      # Requires secrets: DEPLOY_HOST, DEPLOY_USER, DEPLOY_SSH_KEY
+      - name: Deploy to service runner
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}          # 10.10.5.40
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          script: |
+            # Pull latest image
+            docker pull ghcr.io/${{ github.repository }}:${{ github.sha }}
+
+            # Stop existing container (if running)
+            docker stop quanta-insights-connectors || true
+            docker rm quanta-insights-connectors || true
+
+            # Stop existing webhook container (if running)
+            docker stop quanta-insights-webhooks || true
+            docker rm quanta-insights-webhooks || true
+
+            # Run MCP server container (stdio transport)
+            docker run -d \
+              --name quanta-insights-connectors \
+              --restart unless-stopped \
+              --memory 512m \
+              --cpus 0.5 \
+              -e TRANSPORT=stdio \
+              -e LOG_LEVEL=INFO \
+              -e ENABLED_CONNECTORS=bullhorn,fathom,sourcewhale,linkedin \
+              -e BULLHORN_MOCK_MODE=true \
+              -e FATHOM_MOCK_MODE=true \
+              -e SOURCEWHALE_MOCK_MODE=true \
+              -e LINKEDIN_MOCK_MODE=true \
+              -e ALLOW_WRITES=false \
+              -e VAULT_ADDR=${{ secrets.VAULT_ADDR }} \
+              -e VAULT_ROLE_ID=${{ secrets.VAULT_ROLE_ID }} \
+              -e VAULT_SECRET_ID=${{ secrets.VAULT_SECRET_ID }} \
+              -l "traefik.enable=false" \
+              ghcr.io/${{ github.repository }}:${{ github.sha }}
+
+            # Run webhook receiver container (HTTP on port 8081)
+            docker run -d \
+              --name quanta-insights-webhooks \
+              --restart unless-stopped \
+              --memory 256m \
+              --cpus 0.25 \
+              -p 8081:8081 \
+              -e LOG_LEVEL=INFO \
+              -e FATHOM_WEBHOOK_SECRET=${{ secrets.FATHOM_WEBHOOK_SECRET }} \
+              -e WEBHOOK_PORT=8081 \
+              -e ENABLED_CONNECTORS=fathom \
+              -e FATHOM_MOCK_MODE=false \
+              -l "traefik.enable=true" \
+              -l "traefik.http.routers.quanta-webhooks.rule=Host(\`quanta-insights.chateaumac.com\`) && PathPrefix(\`/webhooks\`)" \
+              -l "traefik.http.routers.quanta-webhooks.entrypoints=websecure" \
+              -l "traefik.http.routers.quanta-webhooks.tls.certresolver=letsencrypt" \
+              -l "traefik.http.services.quanta-webhooks.loadbalancer.server.port=8081" \
+              ghcr.io/${{ github.repository }}:${{ github.sha }} \
+              python -m quanta_insights.webhooks
+
+            echo "Deployment complete: quanta-insights-connectors + webhooks"
+
+      # Verify deployment health
+      - name: Verify webhook health
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          script: |
+            sleep 10
+            curl -sf http://localhost:8081/health || echo "WARNING: Webhook health check failed"

@@ -24,9 +24,11 @@
 | **Vault Client** | ✅ Code written | Need AppRole + policy |
 | **Vault Setup Guide** | ✅ `docs/vault-setup.md` | Manual steps on vault.chateaumac.com |
 | **Vault Policy** | 🔴 Not created | Manual setup on vault.chateaumac.com |
-| **CI/CD** | 🔴 Not created | Need GitHub Actions workflows |
-| **Webhook Receiver** | 🔴 Not started | Need Fathom integration first |
-| **Tests** | ✅ 42 passing | None |
+| **CI/CD** | ✅ `ci.yml` + `deploy.yml` | Need GitHub secrets configured |
+| **Webhook Receiver** | ✅ Starlette app with HMAC verification | None |
+| **Fathom API Client** | ✅ httpx async client with retries + pagination | Need API key |
+| **Sourcewhale API Client** | ✅ Provisional httpx client | Need API docs + key |
+| **Tests** | ✅ 54 passing | None |
 
 ---
 

@@ -265,15 +265,18 @@ webhook_app = Starlette(
 
 def run_webhook_server(
     host: str = "0.0.0.0",
-    port: int = 8080,
+    port: int | None = None,
 ) -> None:
     """Run the webhook receiver HTTP server.
 
     Args:
         host: Bind address
-        port: Bind port
+        port: Bind port (defaults to settings.webhook_port)
     """
     import uvicorn
+
+    if port is None:
+        port = settings.webhook_port
 
     logger.info(
         "Starting webhook receiver",
@@ -287,3 +290,7 @@ def run_webhook_server(
         port=port,
         log_level="info",
     )
+
+
+if __name__ == "__main__":
+    run_webhook_server()

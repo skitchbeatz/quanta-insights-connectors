@@ -39,6 +39,10 @@ dependencies = [
     
     # Environment
     "python-dotenv>=1.0.0",
+    
+    # Webhook Receiver (HTTP server for Fathom real-time events)
+    "starlette>=0.38.0",
+    "uvicorn>=0.30.0",
 ]
 
 [project.optional-dependencies]

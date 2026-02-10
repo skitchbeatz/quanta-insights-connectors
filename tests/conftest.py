@@ -32,5 +32,7 @@ def mock_settings():
         sourcewhale_mock_mode=True,
         linkedin_mock_mode=True,
         allow_writes=False,
+        fathom_webhook_secret="test-webhook-secret",
+        webhook_port=8081,
         tool_calls_per_minute=60,
     )

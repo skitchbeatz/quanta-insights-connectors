@@ -86,6 +86,16 @@ class Settings(BaseSettings):
         description="Enable write operations on connectors. False by default for safety."
     )
 
+    # Webhook Configuration
+    fathom_webhook_secret: str | None = Field(
+        default=None,
+        description="HMAC secret for verifying Fathom webhook signatures (from webhook registration)"
+    )
+    webhook_port: int = Field(
+        default=8081,
+        description="Port for the webhook receiver HTTP server (separate from MCP transport)"
+    )
+
     # Rate Limiting
     tool_calls_per_minute: int = Field(
         default=60,

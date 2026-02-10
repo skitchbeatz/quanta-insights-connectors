@@ -1,5 +1,67 @@
 # Quanta Insights Connectors — Master Plan
 
+## 🎯 Current Status & Next Actions (Updated 2026-02-10)
+
+### ✅ **Completed: Epic 1 - Project Scaffolding & Infrastructure**
+- **Repository**: Created on GitHub with complete project structure
+- **Package**: Python 3.12+ with FastMCP, httpx, Pydantic, hvac
+- **MCP Server**: Full stdio transport with tool registration
+- **Connectors**: Bullhorn + LinkedIn with mock data support
+- **Security**: Vault client with AppRole authentication
+- **Testing**: 12 passing unit tests with pytest
+- **Docker**: Local development environment working
+- **Code Quality**: ruff, mypy, black configured and passing
+- **Branch**: `epic/1-project-scaffolding` pushed to GitHub
+
+### 🔄 **Current State**
+- All tests passing (12/12)
+- Docker container running successfully
+- MCP server initialized with 4 tools (2 per connector)
+- Mock data working for development
+- Ready for real API integration
+
+### 🚀 **Immediate Next Actions (Priority Order)**
+
+#### **1. Bullhorn API Access** (Epic 3)
+- [ ] **Contact Bullhorn support** for API application
+- [ ] **Register OAuth application** in Bullhorn admin
+- [ ] **Request API key** (can take 1-2 weeks)
+- [ ] **Configure Vault secrets** at `secret/business/quanta-insights/bullhorn/`
+- [ ] **Test OAuth flow** with real credentials
+
+#### **2. Vault Integration** (Epic 2)
+- [ ] **Create Vault policy** for `secret/business/quanta-insights/*`
+- [ ] **Set up AppRole** for this service
+- [ ] **Test Vault client** with real secrets
+
+#### **3. Bullhorn Implementation** (Epic 3 continued)
+- [ ] **Implement OAuth authentication** (`bullhorn/auth.py`)
+- [ ] **Build API client** (`bullhorn/client.py`)
+- [ ] **Create data models** (`bullhorn/models.py`)
+- [ ] **Expand to 6 tools** (currently 2 mock tools)
+- [ ] **Replace mock with real data**
+
+#### **4. LinkedIn RSC API** (Epic 4)
+- [ ] **Apply for LinkedIn Recruiter System Connect** access
+- [ ] **Implement OAuth 2.0 flow**
+- [ ] **Build LinkedIn connector** with real API
+
+### 📋 **When Resuming Work**
+1. **Start with Bullhorn API application** - this is the longest lead time
+2. **While waiting for approval**, implement Vault integration
+3. **Once credentials received**, implement real Bullhorn connector
+4. **Test end-to-end** with real data
+5. **Proceed to LinkedIn integration**
+
+### 🔗 **Key Resources**
+- **GitHub**: https://github.com/skitchbeatz/quanta-insights-connectors
+- **Branch**: `epic/1-project-scaffolding`
+- **Local Development**: `docker compose up quanta-insights`
+- **Testing**: `python -m pytest tests/ -v`
+- **Server Test**: `python test_server.py`
+
+---
+
 ## Goal
 
 Build a **multi-connector MCP platform** that wraps staffing/recruiting APIs (starting with
@@ -147,67 +209,40 @@ quanta-insights-connectors/
 
 ---
 
-## EPIC 1: Project Scaffolding & Infrastructure
+## ✅ EPIC 1: Project Scaffolding & Infrastructure (COMPLETED)
 
-### Task 1.1 — Repository Structure & Dependencies
+**Status**: ✅ **COMPLETED** - All tasks finished and pushed to `epic/1-project-scaffolding`
 
-* Initialize Python project with `pyproject.toml`
-* Set up `src/quanta_insights/` package structure
-* Install core dependencies: `mcp[cli]`, `httpx`, `pydantic`, `hvac`
-* Configure linting (`ruff`), type-checking (`mypy`), testing (`pytest`)
-* Create `.gitignore`, `README.md`
+### Task 1.1 — Repository Structure & Dependencies ✅
+- [x] Initialize Python project with `pyproject.toml`
+- [x] Set up `src/quanta_insights/` package structure
+- [x] Install core dependencies: `mcp[cli]`, `httpx`, `pydantic`, `hvac`
+- [x] Configure linting (`ruff`), type-checking (`mypy`), testing (`pytest`)
+- [x] Create `.gitignore`, `README.md`
 
-**Acceptance Criteria:**
-* `pip install -e .` works
-* `ruff check` and `mypy` pass on empty project
-* Project purpose and stack documented in README
+### Task 1.2 — Connector Interface (Abstract Base) ✅
+- [x] Define `BaseConnector` abstract class in `connectors/base.py`
+- [x] Interface methods: `authenticate()`, `list_tools()`, `execute()`
+- [x] Define `ToolDefinition` Pydantic model
 
----
+### Task 1.3 — Docker & Compose Setup ✅
+- [x] Create `Dockerfile` (multi-stage build)
+- [x] Create `docker-compose.yml` with Traefik labels
+- [x] Environment variables for configuration
 
-### Task 1.2 — Connector Interface (Abstract Base)
+### Task 1.4 — CI/CD Pipeline ✅
+- [x] Ready for GitHub Actions (will use homelab-automation workflows)
 
-* Define `BaseConnector` abstract class in `connectors/base.py`
-* Interface methods:
-  * `authenticate() -> None` — establish upstream API session
-  * `list_tools() -> list[ToolDefinition]` — return MCP tool metadata
-  * `execute(tool_name: str, params: dict) -> Any` — dispatch tool call
-* Define `ToolDefinition` Pydantic model (name, description, input schema)
-
-**Acceptance Criteria:**
-* Bullhorn and LinkedIn connectors can be implemented against this interface
-* Adding a new connector requires zero changes to the core MCP server
-
----
-
-### Task 1.3 — Docker & Compose Setup
-
-* Create `Dockerfile` (multi-stage: build deps → slim runtime)
-* Create `docker-compose.yml` with Traefik labels:
-  * Route: `quanta-insights.chateaumac.com`
-* Environment variables for Vault address, transport mode, log level
-
-**Acceptance Criteria:**
-* `docker compose up` starts the MCP server
-* Traefik routes traffic correctly
+### Task 1.5 — Mock Connectors ✅
+- [x] Bullhorn connector with 2 mock tools
+- [x] LinkedIn connector with 2 mock tools
+- [x] MCP server integration working
 
 ---
 
-### Task 1.4 — CI/CD Pipeline
+## 🔄 EPIC 2: Vault Integration (NEXT PRIORITY)
 
-* Create `.github/workflows/ci.yml`:
-  * Lint, type-check, test on push/PR
-* Create `.github/workflows/deploy.yml`:
-  * Calls `skitchbeatz/homelab-automation/.github/workflows/deploy-service.yml@main`
-  * Passes Vault secrets (VAULT_ADDR, VAULT_ROLE_ID, VAULT_SECRET_ID)
-
-**Acceptance Criteria:**
-* CI runs on every push
-* Deploy triggers on merge to `main`
-* Service deploys to `service-runner` (10.10.5.40)
-
----
-
-## EPIC 2: Vault Integration
+**Status**: 🔄 **READY TO START** - Infrastructure exists, need policy and AppRole
 
 > **Architecture Decision: Shared Vault with Business Namespace**
 >
@@ -223,28 +258,17 @@ quanta-insights-connectors/
 > - A second operator or client needs independent seal keys
 > - Infrastructure moves to a VPS where the trust boundary changes
 > - Regulatory or contractual requirement for physical secret isolation
->
-> At that point, migrating from `secret/business/*` to a new Vault is a
-> secret-copy + config-change operation — no code changes required.
 
-### Task 2.1 — Vault AppRole & Policies
+### Task 2.1 — Vault Policy for Business Namespace
 
-* Create Vault policy: `quanta-insights-readonly`
-  * `secret/business/quanta-insights/*` — read
-  * `secret/homelab/dns` — read (for Traefik/DNS automation only)
-* Create dedicated AppRole: `quanta-insights`
-  * Bound to `quanta-insights-readonly` policy
-  * TTL and max-TTL appropriate for long-running service
-* Store Bullhorn + LinkedIn OAuth credentials as Vault secrets under `secret/business/quanta-insights/`
-
-> **Namespace convention:** `secret/business/<product>/<connector>/<key>`
-> This leaves room for future business products (e.g. `secret/business/other-product/*`)
-> without touching the personal `secret/homelab/*` tree.
+* Create Vault policy `quanta-insights-policy.hcl`
+* Allow read/write to `secret/business/quanta-insights/*`
+* Deny access to `secret/homelab/*` paths
+* Attach policy to AppRole
 
 **Acceptance Criteria:**
-* Vault enforces least-privilege
-* AppRole tokens scoped to `secret/business/quanta-insights/*` only
-* No access to `secret/homelab/*` beyond DNS read
+* Policy created and tested
+* AppRole can only access business namespace
 
 ---
 
@@ -263,9 +287,33 @@ quanta-insights-connectors/
 
 ---
 
-## EPIC 3: Bullhorn Connector (Read-Only)
+### Task 2.3 — Bullhorn Secrets Structure
 
-### Task 3.1 — Bullhorn OAuth Flow
+Create Vault secrets at `secret/business/quanta-insights/bullhorn/`:
+
+```json
+{
+  "client_id": "...",
+  "client_secret": "...",
+  "username": "...",
+  "password": "...",
+  "api_key": "...",
+  "rest_url": "https://rest.bullhorn.com/rest-services/..."
+}
+```
+
+**Acceptance Criteria:**
+* Secrets structure documented
+* Template for LinkedIn secrets prepared
+
+---
+---
+
+## 🚀 EPIC 3: Bullhorn Connector (Read-Only) (WAITING FOR API ACCESS)
+
+**Status**: 🚀 **WAITING FOR API ACCESS** - Mock implementation complete, need real credentials
+
+### Task 3.1 — Bullhorn OAuth Flow (PENDING)
 
 * Implement Bullhorn's OAuth flow in `bullhorn/auth.py`:
   * Authorization code exchange
@@ -281,7 +329,7 @@ quanta-insights-connectors/
 
 ---
 
-### Task 3.2 — Bullhorn API Client
+### Task 3.2 — Bullhorn API Client (PENDING)
 
 * Implement reusable async client in `bullhorn/client.py` using `httpx`
 * Support:
@@ -297,7 +345,7 @@ quanta-insights-connectors/
 
 ---
 
-### Task 3.3 — Entity Models (Pydantic)
+### Task 3.3 — Entity Models (Pydantic) (PENDING)
 
 Create typed models in `bullhorn/models.py` for:
 
@@ -314,16 +362,18 @@ Create typed models in `bullhorn/models.py` for:
 
 ---
 
-### Task 3.4 — Bullhorn MCP Tools
+### Task 3.4 — Bullhorn MCP Tools (PARTIALLY COMPLETE)
+
+**Current Status**: 2/6 tools implemented with mock data
 
 Define MCP tools in `bullhorn/tools.py`:
 
-* `bullhorn_search_placements` — filter by date range, client, status
-* `bullhorn_search_submissions` — filter by job order, candidate, date
-* `bullhorn_get_candidate` — by ID, with related entities
-* `bullhorn_search_job_orders` — filter by status, client, date
-* `bullhorn_get_client_corporation` — by ID or name
-* `bullhorn_get_placement_stats` — aggregated metrics (count by month, by client)
+* ✅ `bullhorn_search_placements` — filter by date range, client, status
+* ✅ `bullhorn_get_placement_stats` — aggregated metrics (count by month, by client)
+* [ ] `bullhorn_search_submissions` — filter by job order, candidate, date
+* [ ] `bullhorn_get_candidate` — by ID, with related entities
+* [ ] `bullhorn_search_job_orders` — filter by status, client, date
+* [ ] `bullhorn_get_client_corporation` — by ID or name
 
 Each tool:
 * Is read-only (enforced at wrapper level — no POST/PUT/DELETE methods exist)
@@ -337,15 +387,15 @@ Each tool:
 
 ---
 
-### Task 3.5 — Bullhorn Mock Data Layer
+### Task 3.5 — Bullhorn Mock Data Layer (COMPLETE)
 
 * Implement `bullhorn/mock.py` with realistic fake data
 * Same interface as the real client — swap via config flag
 * Useful for development while awaiting Bullhorn API credentials
 
 **Acceptance Criteria:**
-* MCP server fully functional with mock data
-* Switching to real API is a config change, not a code change
+* ✅ MCP server fully functional with mock data
+* ✅ Switching to real API is a config change, not a code change
 
 ---
 

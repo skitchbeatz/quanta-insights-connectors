@@ -10,20 +10,23 @@
 | Connector | Mock Built | API Access | Real Integration | Blocker |
 |-----------|-----------|------------|-----------------|---------|
 | **Bullhorn ATS** | ✅ 2 tools | 🔴 Need credentials | 🔴 Not started | Scope ATS API in admin UI |
-| **Fathom** | 🔴 Not started | 🟡 API key available | 🔴 Not started | Generate API key from settings |
-| **Sourcewhale** | 🔴 Not started | 🔴 No API docs yet | 🔴 Not started | Locate API documentation |
+| **Fathom** | ✅ 5 tools + models | 🟡 API key available | 🔴 Not started | Generate API key from settings |
+| **Sourcewhale** | ✅ 5 tools + models (provisional) | 🔴 No API docs yet | 🔴 Not started | Locate API documentation |
 | **LinkedIn RSC** | ✅ 2 tools | 🔴 Need RSC access | 🔴 Not started | Apply via LinkedIn partner program |
 
 ### Infrastructure
 
 | Component | Status | Blocker |
 |-----------|--------|---------|
-| **MCP Server** | ✅ Running (stdio) | None |
+| **MCP Server** | ✅ Running (stdio), 14 tools registered | None |
 | **Docker** | ✅ Container builds & runs | None |
+| **Write Protection** | ✅ Enforced at BaseConnector level | None |
 | **Vault Client** | ✅ Code written | Need AppRole + policy |
+| **Vault Setup Guide** | ✅ `docs/vault-setup.md` | Manual steps on vault.chateaumac.com |
 | **Vault Policy** | 🔴 Not created | Manual setup on vault.chateaumac.com |
 | **CI/CD** | 🔴 Not created | Need GitHub Actions workflows |
 | **Webhook Receiver** | 🔴 Not started | Need Fathom integration first |
+| **Tests** | ✅ 42 passing | None |
 
 ---
 
@@ -68,10 +71,19 @@
 
 ### 2. Fathom
 
-**Current State:** No code yet. API documentation reviewed.
+**Current State:** Mock connector with 5 tools and full Pydantic models. 11 unit tests passing.
 
 #### What's Built
-- [ ] Nothing yet — new connector
+- [x] `FathomConnector` class implementing `BaseConnector`
+- [x] Mock authentication flow
+- [x] `fathom_list_meetings` tool (mock data, filters by date/domain)
+- [x] `fathom_get_meeting_summary` tool (mock AI summaries)
+- [x] `fathom_get_meeting_transcript` tool (mock speaker-attributed transcripts)
+- [x] `fathom_search_meetings_by_domain` tool (mock domain search)
+- [x] `fathom_get_action_items` tool (mock action items with assignees)
+- [x] Pydantic models: Meeting, TranscriptEntry, MeetingSummary, ActionItem, CalendarInvitee, etc.
+- [x] Realistic mock data: discovery calls, candidate screens, client meetings
+- [x] Unit tests (11 passing)
 
 #### What's Needed to Go Live
 
@@ -79,10 +91,9 @@
 |-------------|--------|--------|-------|
 | **API key** | 🟡 Available | Generate from Fathom settings page | Admin |
 | **Vault secret** | 🔴 Not created | Store at `secret/business/quanta-insights/fathom/` | Dev |
-| **Mock connector** | 🔴 Not started | `fathom/connector.py` with mock data | Dev |
+| **Mock connector** | ✅ Complete | 5 tools with realistic data | Dev |
+| **Pydantic models** | ✅ Complete | `fathom/models.py` — full typed models | Dev |
 | **API client** | 🔴 Not started | `fathom/client.py` — httpx async client | Dev |
-| **Pydantic models** | 🔴 Not started | `fathom/models.py` — Meeting, Transcript, Summary, ActionItem | Dev |
-| **MCP tools** | 🔴 Not started | 5 tools: list_meetings, get_summary, get_transcript, search_by_domain, get_action_items | Dev |
 | **Webhook receiver** | 🔴 Not started | `webhooks.py` — receive real-time meeting data | Dev |
 | **Webhook registration** | 🔴 Not started | POST to Fathom API to register webhook endpoint | Dev |
 
@@ -111,10 +122,23 @@
 
 ### 3. Sourcewhale
 
-**Current State:** No code yet. API documentation not yet located.
+**Current State:** Mock connector with 5 tools and provisional Pydantic models. 13 unit tests passing.
+
+> **NOTE:** API documentation is not publicly available. Models are inferred from common
+> outreach platform patterns (Outreach.io, Salesloft, Apollo) and Sourcewhale's known
+> feature set. Will be updated once official API docs are obtained.
 
 #### What's Built
-- [ ] Nothing yet — new connector
+- [x] `SourcewhaleConnector` class implementing `BaseConnector`
+- [x] Mock authentication flow
+- [x] `sourcewhale_list_sequences` tool (mock campaigns with steps + stats)
+- [x] `sourcewhale_get_sequence_stats` tool (mock performance metrics)
+- [x] `sourcewhale_search_contacts` tool (mock contacts by sequence/status/email)
+- [x] `sourcewhale_get_outreach_history` tool (mock event timeline)
+- [x] `sourcewhale_get_campaign_analytics` tool (mock aggregated analytics)
+- [x] Pydantic models (provisional): Sequence, SequenceStep, ContactOutreach, OutreachEvent, CampaignAnalytics
+- [x] Realistic mock data: engineering sequences, ML hiring, client outreach
+- [x] Unit tests (13 passing)
 
 #### What's Needed to Go Live
 
@@ -123,10 +147,9 @@
 | **API documentation** | 🔴 Not found | Search Sourcewhale docs/support for API reference | Admin/Dev |
 | **API key** | 🔴 Not generated | Generate from Sourcewhale settings (once docs confirm method) | Admin |
 | **Vault secret** | 🔴 Not created | Store at `secret/business/quanta-insights/sourcewhale/` | Dev |
-| **Mock connector** | 🔴 Not started | `sourcewhale/connector.py` with mock data | Dev |
+| **Mock connector** | ✅ Complete | 5 tools with provisional models | Dev |
+| **Pydantic models** | ✅ Complete (provisional) | Will update when API docs obtained | Dev |
 | **API client** | 🔴 Not started | `sourcewhale/client.py` — httpx async client | Dev |
-| **Pydantic models** | 🔴 Not started | `sourcewhale/models.py` — Sequence, CandidateOutreach, etc. | Dev |
-| **MCP tools** | 🔴 Not started | 5 tools: list_sequences, get_sequence_stats, search_candidates, get_outreach_history, get_campaign_analytics | Dev |
 
 #### Discovery Needed
 - [ ] **Locate API documentation** — check Sourcewhale settings, support docs, or contact support

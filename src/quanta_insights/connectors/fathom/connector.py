@@ -15,7 +15,8 @@ from typing import Any
 
 from ...config import settings
 from ...logging import get_logger
-from ..base import BaseConnector, ToolDefinition
+from ..base import AuthenticationError, BaseConnector, ToolDefinition
+from .client import FathomAPIClient
 
 logger = get_logger(__name__)
 
@@ -26,6 +27,7 @@ class FathomConnector(BaseConnector):
     def __init__(self) -> None:
         super().__init__("Fathom")
         self.mock_mode = settings.is_mock_mode("fathom")
+        self._api_client: FathomAPIClient | None = None
 
     async def authenticate(self) -> None:
         """Authenticate with Fathom API.
@@ -38,9 +40,37 @@ class FathomConnector(BaseConnector):
             self._set_authenticated(True)
             return
 
-        # TODO: Load API key from Vault at secret/business/quanta-insights/fathom/
-        # TODO: Validate key with a lightweight API call (e.g. GET /teams)
-        logger.info("Fathom authentication not yet implemented")
+        # Load API key from Vault
+        try:
+            from ...vault_client import vault_client
+            secret = await vault_client.get_secret("business/quanta-insights/fathom")
+            api_key = secret.get("api_key")
+            if not api_key:
+                raise AuthenticationError(
+                    "Fathom API key not found in Vault at "
+                    "secret/business/quanta-insights/fathom/"
+                )
+        except AuthenticationError:
+            raise
+        except Exception as e:
+            raise AuthenticationError(
+                f"Failed to load Fathom credentials from Vault: {e}"
+            ) from e
+
+        # Create and validate the API client
+        self._api_client = FathomAPIClient(api_key=api_key)
+        await self._api_client.__aenter__()
+
+        try:
+            await self._api_client.validate_api_key()
+            logger.info("Fathom API key validated successfully")
+        except Exception as e:
+            await self._api_client.__aexit__(None, None, None)
+            self._api_client = None
+            raise AuthenticationError(
+                f"Fathom API key validation failed: {e}"
+            ) from e
+
         self._set_authenticated(True)
 
     async def _get_all_tools(self) -> list[ToolDefinition]:
@@ -184,8 +214,13 @@ class FathomConnector(BaseConnector):
                 limit=args.get("limit", 50),
             )
 
-        # TODO: Implement real Fathom API call (GET /meetings)
-        return {"message": "Real Fathom API not yet implemented"}
+        # Real API: fetch meetings with date filters
+        assert self._api_client is not None
+        return await self._api_client.list_meetings(
+            after=args.get("date_from"),
+            before=args.get("date_to"),
+            limit=args.get("limit", 50),
+        )
 
     async def _get_meeting_summary(self, args: dict[str, Any]) -> dict[str, Any]:
         """Get AI summary for a recording."""
@@ -199,8 +234,10 @@ class FathomConnector(BaseConnector):
                 return {"error": f"No summary found for recording '{recording_id}'"}
             return {"recording_id": recording_id, "summary": summary}
 
-        # TODO: Implement real Fathom API call (GET /recordings/{id}/summary)
-        return {"message": "Real Fathom API not yet implemented"}
+        # Real API: fetch recording summary
+        assert self._api_client is not None
+        summary = await self._api_client.get_recording_summary(recording_id)
+        return {"recording_id": recording_id, "summary": summary}
 
     async def _get_meeting_transcript(self, args: dict[str, Any]) -> dict[str, Any]:
         """Get full transcript for a recording."""
@@ -218,8 +255,15 @@ class FathomConnector(BaseConnector):
                 "entry_count": len(transcript),
             }
 
-        # TODO: Implement real Fathom API call (GET /recordings/{id}/transcript)
-        return {"message": "Real Fathom API not yet implemented"}
+        # Real API: fetch recording transcript
+        assert self._api_client is not None
+        transcript_data = await self._api_client.get_recording_transcript(recording_id)
+        entries = transcript_data.get("transcript", [])
+        return {
+            "recording_id": recording_id,
+            "transcript": entries,
+            "entry_count": len(entries),
+        }
 
     async def _search_meetings_by_domain(self, args: dict[str, Any]) -> dict[str, Any]:
         """Search meetings by attendee email domain."""
@@ -236,8 +280,23 @@ class FathomConnector(BaseConnector):
                 "total": len(result["meetings"]),
             }
 
-        # TODO: Implement real Fathom API call (GET /meetings?domain=...)
-        return {"message": "Real Fathom API not yet implemented"}
+        # Real API: Fathom doesn't have a native domain filter, so we
+        # fetch all meetings and filter client-side by invitee domain.
+        # TODO: Optimize with server-side filtering if Fathom adds support.
+        assert self._api_client is not None
+        all_meetings = await self._api_client.list_all_meetings()
+        filtered = [
+            m for m in all_meetings
+            if any(
+                inv.get("domain", "").lower() == domain.lower()
+                for inv in m.get("calendar_invitees", [])
+            )
+        ][:limit]
+        return {
+            "domain": domain,
+            "meetings": filtered,
+            "total": len(filtered),
+        }
 
     async def _get_action_items(self, args: dict[str, Any]) -> dict[str, Any]:
         """Get action items from a recording."""
@@ -255,5 +314,14 @@ class FathomConnector(BaseConnector):
                 "total": len(items),
             }
 
-        # TODO: Implement real Fathom API call (GET /recordings/{id} with action items)
-        return {"message": "Real Fathom API not yet implemented"}
+        # Real API: fetch recording with action items included
+        assert self._api_client is not None
+        recording = await self._api_client.get_recording(
+            recording_id, include_action_items=True
+        )
+        items = recording.get("action_items", [])
+        return {
+            "recording_id": recording_id,
+            "action_items": items,
+            "total": len(items),
+        }

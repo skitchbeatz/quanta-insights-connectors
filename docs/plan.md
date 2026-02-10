@@ -8,20 +8,27 @@
 - **MCP Server**: Full stdio transport with tool registration
 - **Connectors**: Bullhorn + LinkedIn with mock data support
 - **Security**: Vault client with AppRole authentication
-- **Testing**: 12 passing unit tests with pytest
 - **Docker**: Local development environment working
 - **Code Quality**: ruff, mypy, black configured and passing
 - **Branch**: `epic/1-project-scaffolding` pushed to GitHub
 
+### ✅ **Completed: Mock Connectors & Write Protection**
+- **Fathom connector**: 5 mock tools (list_meetings, get_summary, get_transcript, search_by_domain, get_action_items)
+- **Sourcewhale connector**: 5 mock tools (list_sequences, get_sequence_stats, search_contacts, get_outreach_history, get_campaign_analytics)
+- **Pydantic models**: Full typed models for both Fathom and Sourcewhale entities
+- **Write protection layer**: `ToolAccessLevel` enum (READ/WRITE) on `ToolDefinition`, enforced at both `list_tools()` and `execute()` in `BaseConnector`
+- **Config**: `allow_writes=False` by default, per-connector mock mode flags
+- **Vault setup guide**: `docs/vault-setup.md` — step-by-step AppRole + policy creation
+- **Testing**: 42 passing unit tests (Bullhorn 6, Fathom 11, Sourcewhale 13, LinkedIn 6, write protection 6)
+- **Refactored**: All connectors use `_get_all_tools()` / `_execute_tool()` pattern
+
 ### 🔄 **Current State**
-- All tests passing (12/12)
+- All tests passing (42/42)
 - Docker container running successfully
-- MCP server initialized with 4 tools (2 per connector)
-- Mock data working for development
-- Ready for real API integration
-- **Pivoting Bullhorn to ATS API** (admin-scoped, data-limited)
-- **Adding Fathom connector** (meeting summaries, transcripts, webhooks)
-- **Adding Sourcewhale connector** (outreach sequences, candidate messaging)
+- MCP server initialized with 14 tools (2 Bullhorn + 5 Fathom + 5 Sourcewhale + 2 LinkedIn)
+- All connectors in mock mode — ready for real API integration
+- Write operations blocked by default (read-only enforcement)
+- Sourcewhale models are **provisional** — will update when official API docs are obtained
 
 ### 🚀 **Immediate Next Actions (Priority Order)**
 
@@ -31,21 +38,26 @@
 - [ ] **Configure Vault secrets** at `secret/business/quanta-insights/bullhorn/`
 - [ ] **Test OAuth flow** with real credentials
 
-#### **2. Fathom API Access** (Epic 5 — NEW)
+#### **2. Fathom API Access** (Epic 5)
+- [x] **Build mock Fathom connector** (5 tools with realistic data)
+- [x] **Pydantic models** for all Fathom entities
 - [ ] **Generate Fathom API key** from Fathom settings
-- [ ] **Build mock Fathom connector** (list meetings, get summary, get transcript)
+- [ ] **Build real httpx API client** (`fathom/client.py`)
 - [ ] **Design webhook receiver** for real-time meeting data
 - [ ] **Store API key** in Vault at `secret/business/quanta-insights/fathom/`
 
-#### **3. Sourcewhale API Access** (Epic 6 — NEW)
-- [ ] **Locate Sourcewhale API documentation** (in progress)
+#### **3. Sourcewhale API Access** (Epic 6)
+- [x] **Build mock Sourcewhale connector** (5 tools, provisional models)
+- [x] **Pydantic models** for inferred Sourcewhale entities
+- [ ] **Locate Sourcewhale API documentation** (blocker)
 - [ ] **Generate Sourcewhale API key**
-- [ ] **Build mock Sourcewhale connector** (sequences, candidates, messaging)
+- [ ] **Build real httpx API client** (`sourcewhale/client.py`)
 - [ ] **Store API key** in Vault at `secret/business/quanta-insights/sourcewhale/`
 
 #### **4. Vault Integration** (Epic 2)
-- [ ] **Create Vault policy** for `secret/business/quanta-insights/*`
-- [ ] **Set up AppRole** for this service
+- [x] **Vault setup guide written** (`docs/vault-setup.md`)
+- [ ] **Create Vault policy** on vault.chateaumac.com (manual step)
+- [ ] **Set up AppRole** on vault.chateaumac.com (manual step)
 - [ ] **Test Vault client** with real secrets
 
 #### **5. LinkedIn RSC API** (Epic 4)
@@ -54,13 +66,15 @@
 - [ ] **Build LinkedIn connector** with real API
 
 ### 📋 **When Resuming Work**
-1. **Start with Bullhorn ATS API** — scope in admin UI, generate credentials
-2. **Generate Fathom API key** — straightforward, no approval wait
-3. **Locate Sourcewhale API docs** — generate API key when available
-4. **While waiting for any approvals**, build mock connectors for Fathom + Sourcewhale
-5. **Implement Vault integration** to store all credentials securely
-6. **Refer to `docs/data-flows.md`** for recruiter workflow context
-7. **Refer to `docs/integration-status.md`** for detailed blocker tracking
+1. **Build Fathom real API client** — httpx async client ready for when API key is obtained
+2. **Build Fathom webhook receiver** — HTTP endpoint for real-time meeting data
+3. **Generate Fathom API key** — straightforward, no approval wait
+4. **Scope Bullhorn ATS API** — admin UI, generate credentials
+5. **Locate Sourcewhale API docs** — update provisional models when available
+6. **Create Vault AppRole + policy** — follow `docs/vault-setup.md`
+7. **Build CI/CD pipeline** — GitHub Actions deploy workflow
+8. **Refer to `docs/data-flows.md`** for recruiter workflow context
+9. **Refer to `docs/integration-status.md`** for detailed blocker tracking
 
 ### 🔗 **Key Resources**
 - **GitHub**: https://github.com/skitchbeatz/quanta-insights-connectors
@@ -71,6 +85,7 @@
 - **Fathom API Docs**: https://developers.fathom.ai/api-reference
 - **Data Flow Map**: `docs/data-flows.md`
 - **Integration Status**: `docs/integration-status.md`
+- **Vault Setup Guide**: `docs/vault-setup.md`
 
 ---
 

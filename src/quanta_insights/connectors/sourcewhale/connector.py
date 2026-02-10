@@ -19,7 +19,8 @@ from typing import Any
 
 from ...config import settings
 from ...logging import get_logger
-from ..base import BaseConnector, ToolDefinition
+from ..base import AuthenticationError, BaseConnector, ToolDefinition
+from .client import SourcewhaleAPIClient
 
 logger = get_logger(__name__)
 
@@ -33,6 +34,7 @@ class SourcewhaleConnector(BaseConnector):
     def __init__(self) -> None:
         super().__init__("Sourcewhale")
         self.mock_mode = settings.is_mock_mode("sourcewhale")
+        self._api_client: SourcewhaleAPIClient | None = None
 
     async def authenticate(self) -> None:
         """Authenticate with Sourcewhale API.
@@ -45,9 +47,37 @@ class SourcewhaleConnector(BaseConnector):
             self._set_authenticated(True)
             return
 
-        # TODO: Load API key from Vault at secret/business/quanta-insights/sourcewhale/
-        # TODO: Validate key with a lightweight API call
-        logger.info("Sourcewhale authentication not yet implemented")
+        # Load API key from Vault
+        try:
+            from ...vault_client import vault_client
+            secret = await vault_client.get_secret("business/quanta-insights/sourcewhale")
+            api_key = secret.get("api_key")
+            if not api_key:
+                raise AuthenticationError(
+                    "Sourcewhale API key not found in Vault at "
+                    "secret/business/quanta-insights/sourcewhale/"
+                )
+        except AuthenticationError:
+            raise
+        except Exception as e:
+            raise AuthenticationError(
+                f"Failed to load Sourcewhale credentials from Vault: {e}"
+            ) from e
+
+        # Create and validate the API client
+        self._api_client = SourcewhaleAPIClient(api_key=api_key)
+        await self._api_client.__aenter__()
+
+        try:
+            await self._api_client.validate_api_key()
+            logger.info("Sourcewhale API key validated successfully")
+        except Exception as e:
+            await self._api_client.__aexit__(None, None, None)
+            self._api_client = None
+            raise AuthenticationError(
+                f"Sourcewhale API key validation failed: {e}"
+            ) from e
+
         self._set_authenticated(True)
 
     async def _get_all_tools(self) -> list[ToolDefinition]:
@@ -196,8 +226,13 @@ class SourcewhaleConnector(BaseConnector):
                 limit=args.get("limit", 50),
             )
 
-        # TODO: Implement real Sourcewhale API call
-        return {"message": "Real Sourcewhale API not yet implemented"}
+        # Real API: fetch sequences with filters
+        assert self._api_client is not None
+        return await self._api_client.list_sequences(
+            status=args.get("status"),
+            tag=args.get("tag"),
+            limit=args.get("limit", 50),
+        )
 
     async def _get_sequence_stats(self, args: dict[str, Any]) -> dict[str, Any]:
         """Get stats for a specific sequence."""
@@ -211,8 +246,9 @@ class SourcewhaleConnector(BaseConnector):
                 return {"error": f"No sequence found with ID '{sequence_id}'"}
             return stats
 
-        # TODO: Implement real Sourcewhale API call
-        return {"message": "Real Sourcewhale API not yet implemented"}
+        # Real API: fetch sequence stats
+        assert self._api_client is not None
+        return await self._api_client.get_sequence_stats(sequence_id)
 
     async def _search_contacts(self, args: dict[str, Any]) -> dict[str, Any]:
         """Search contacts by sequence, status, or email."""
@@ -227,8 +263,14 @@ class SourcewhaleConnector(BaseConnector):
                 limit=args.get("limit", 50),
             )
 
-        # TODO: Implement real Sourcewhale API call
-        return {"message": "Real Sourcewhale API not yet implemented"}
+        # Real API: search contacts with filters
+        assert self._api_client is not None
+        return await self._api_client.list_contacts(
+            sequence_id=args.get("sequence_id"),
+            status=args.get("status"),
+            email=args.get("email"),
+            limit=args.get("limit", 50),
+        )
 
     async def _get_outreach_history(self, args: dict[str, Any]) -> dict[str, Any]:
         """Get outreach history for a contact."""
@@ -242,8 +284,9 @@ class SourcewhaleConnector(BaseConnector):
                 return {"error": f"No outreach history found for contact '{contact_id}'"}
             return history
 
-        # TODO: Implement real Sourcewhale API call
-        return {"message": "Real Sourcewhale API not yet implemented"}
+        # Real API: fetch contact outreach history
+        assert self._api_client is not None
+        return await self._api_client.get_contact_history(contact_id)
 
     async def _get_campaign_analytics(self, args: dict[str, Any]) -> dict[str, Any]:
         """Get aggregated campaign analytics."""
@@ -254,5 +297,6 @@ class SourcewhaleConnector(BaseConnector):
             from .mock import get_mock_campaign_analytics
             return get_mock_campaign_analytics(period=period)
 
-        # TODO: Implement real Sourcewhale API call
-        return {"message": "Real Sourcewhale API not yet implemented"}
+        # Real API: fetch aggregated analytics
+        assert self._api_client is not None
+        return await self._api_client.get_analytics(period=period)

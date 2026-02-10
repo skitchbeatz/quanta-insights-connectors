@@ -19,39 +19,48 @@
 - MCP server initialized with 4 tools (2 per connector)
 - Mock data working for development
 - Ready for real API integration
+- **Pivoting Bullhorn to ATS API** (admin-scoped, data-limited)
+- **Adding Fathom connector** (meeting summaries, transcripts, webhooks)
+- **Adding Sourcewhale connector** (outreach sequences, candidate messaging)
 
 ### 🚀 **Immediate Next Actions (Priority Order)**
 
-#### **1. Bullhorn API Access** (Epic 3)
-- [ ] **Contact Bullhorn support** for API application
-- [ ] **Register OAuth application** in Bullhorn admin
-- [ ] **Request API key** (can take 1-2 weeks)
+#### **1. Bullhorn ATS API Access** (Epic 3)
+- [ ] **Scope ATS API permissions** in Bullhorn admin UI (read-only, limited entities)
+- [ ] **Generate API credentials** via admin panel
 - [ ] **Configure Vault secrets** at `secret/business/quanta-insights/bullhorn/`
 - [ ] **Test OAuth flow** with real credentials
 
-#### **2. Vault Integration** (Epic 2)
+#### **2. Fathom API Access** (Epic 5 — NEW)
+- [ ] **Generate Fathom API key** from Fathom settings
+- [ ] **Build mock Fathom connector** (list meetings, get summary, get transcript)
+- [ ] **Design webhook receiver** for real-time meeting data
+- [ ] **Store API key** in Vault at `secret/business/quanta-insights/fathom/`
+
+#### **3. Sourcewhale API Access** (Epic 6 — NEW)
+- [ ] **Locate Sourcewhale API documentation** (in progress)
+- [ ] **Generate Sourcewhale API key**
+- [ ] **Build mock Sourcewhale connector** (sequences, candidates, messaging)
+- [ ] **Store API key** in Vault at `secret/business/quanta-insights/sourcewhale/`
+
+#### **4. Vault Integration** (Epic 2)
 - [ ] **Create Vault policy** for `secret/business/quanta-insights/*`
 - [ ] **Set up AppRole** for this service
 - [ ] **Test Vault client** with real secrets
 
-#### **3. Bullhorn Implementation** (Epic 3 continued)
-- [ ] **Implement OAuth authentication** (`bullhorn/auth.py`)
-- [ ] **Build API client** (`bullhorn/client.py`)
-- [ ] **Create data models** (`bullhorn/models.py`)
-- [ ] **Expand to 6 tools** (currently 2 mock tools)
-- [ ] **Replace mock with real data**
-
-#### **4. LinkedIn RSC API** (Epic 4)
+#### **5. LinkedIn RSC API** (Epic 4)
 - [ ] **Apply for LinkedIn Recruiter System Connect** access
 - [ ] **Implement OAuth 2.0 flow**
 - [ ] **Build LinkedIn connector** with real API
 
 ### 📋 **When Resuming Work**
-1. **Start with Bullhorn API application** - this is the longest lead time
-2. **While waiting for approval**, implement Vault integration
-3. **Once credentials received**, implement real Bullhorn connector
-4. **Test end-to-end** with real data
-5. **Proceed to LinkedIn integration**
+1. **Start with Bullhorn ATS API** — scope in admin UI, generate credentials
+2. **Generate Fathom API key** — straightforward, no approval wait
+3. **Locate Sourcewhale API docs** — generate API key when available
+4. **While waiting for any approvals**, build mock connectors for Fathom + Sourcewhale
+5. **Implement Vault integration** to store all credentials securely
+6. **Refer to `docs/data-flows.md`** for recruiter workflow context
+7. **Refer to `docs/integration-status.md`** for detailed blocker tracking
 
 ### 🔗 **Key Resources**
 - **GitHub**: https://github.com/skitchbeatz/quanta-insights-connectors
@@ -59,15 +68,22 @@
 - **Local Development**: `docker compose up quanta-insights`
 - **Testing**: `python -m pytest tests/ -v`
 - **Server Test**: `python test_server.py`
+- **Fathom API Docs**: https://developers.fathom.ai/api-reference
+- **Data Flow Map**: `docs/data-flows.md`
+- **Integration Status**: `docs/integration-status.md`
 
 ---
 
 ## Goal
 
 Build a **multi-connector MCP platform** that wraps staffing/recruiting APIs (starting with
-**Bullhorn** and **LinkedIn Recruiter**), authenticates via OAuth, securely stores credentials in
-Vault, and exposes read-only MCP tools to any AI-assisted IDE (Codex, Claude Desktop, Windsurf,
-Cursor, etc.).
+**Bullhorn ATS**, **Fathom**, **Sourcewhale**, and **LinkedIn Recruiter**), authenticates via
+OAuth or API keys, securely stores credentials in Vault, and exposes read-only MCP tools to
+any AI-assisted IDE (Codex, Claude Desktop, Windsurf, Cursor, etc.).
+
+The platform models the **full recruiter workflow**: discovery calls (Fathom) → candidate
+outreach (Sourcewhale) → ATS tracking (Bullhorn) → talent sourcing (LinkedIn). An AI agent
+can read data across all systems to generate insights at each stage.
 
 Architected from day one as a **shippable product** — each connector is a pluggable adapter so
 new integrations can be added without touching the core MCP server.
@@ -75,8 +91,8 @@ new integrations can be added without touching the core MCP server.
 **Phase 1 End State:**
 
 * Any MCP-compatible client can call tools via stdio (local) or HTTP+SSE (remote)
-* MCP server fetches real Bullhorn + LinkedIn Recruiter data
-* Recruiter-facing insights can be generated (placements, trends, candidate pipelines)
+* MCP server fetches real data from Bullhorn ATS, Fathom, Sourcewhale, and LinkedIn Recruiter
+* AI agent can read across the full recruiter workflow for context-aware insights
 * No writes to any upstream system
 * Deployed to homelab via existing CI/CD infrastructure
 
@@ -88,11 +104,14 @@ new integrations can be added without touching the core MCP server.
 
 * Custom MCP server — Python + FastMCP
 * **Dual transport**: stdio (local dev) + HTTP+SSE (production / product)
-* Bullhorn REST API connector (read-only)
-* LinkedIn Recruiter System Connect (RSC) API connector (read-only)
+* **Bullhorn ATS API** connector (read-only, admin-scoped)
+* **Fathom API** connector (meeting summaries, transcripts, action items)
+* **Sourcewhale API** connector (sequences, candidate outreach, messaging)
+* **LinkedIn Recruiter System Connect (RSC) API** connector (read-only)
 * Plugin/adapter pattern for connectors
-* OAuth authentication flows (Bullhorn OAuth, LinkedIn OAuth 2.0)
+* OAuth / API key authentication flows per connector
 * Secure credential storage via **homelab Vault** (AppRole auth — already operational)
+* Webhook receiver for Fathom real-time meeting data
 * Deployment to homelab via `deploy-service.yml` reusable workflow
 * Traefik routing (e.g. `quanta-insights.chateaumac.com`)
 * Single-user context (multi-tenant deferred to Phase 2)
@@ -120,16 +139,22 @@ new integrations can be added without touching the core MCP server.
 │  Quanta Insights MCP Server  (Python / FastMCP)     │
 │                                                      │
 │  ┌────────────┐  ┌────────────┐  ┌──────────────┐  │
-│  │  Bullhorn   │  │  LinkedIn   │  │  Future      │  │
-│  │  Connector  │  │  Connector  │  │  Connectors  │  │
-│  └──────┬─────┘  └──────┬─────┘  └──────────────┘  │
-│         │               │                            │
-│  ┌──────▼───────────────▼────────────────────────┐  │
-│  │  Connector Interface (abstract base)           │  │
-│  │  - authenticate()                              │  │
-│  │  - list_tools() -> list[Tool]                  │  │
-│  │  - execute(tool_name, params) -> Result         │  │
-│  └───────────────────────────────────────────────┘  │
+│  │  Bullhorn   │  │  Fathom    │  │  Sourcewhale │  │
+│  │  ATS        │  │  Connector │  │  Connector   │  │
+│  │  Connector  │  │            │  │              │  │
+│  └──────┬─────┘  └──────┬─────┘  └──────┬───────┘  │
+│         │               │               │           │
+│  ┌──────┴───┐  ┌────────┴──────────┐    │           │
+│  │ LinkedIn  │  │ Webhook Receiver  │    │           │
+│  │ Connector │  │ (Fathom events)   │    │           │
+│  └──────┬───┘  └───────────────────┘    │           │
+│         │                                │           │
+│  ┌──────▼────────────────────────────────▼────────┐ │
+│  │  Connector Interface (abstract base)            │ │
+│  │  - authenticate()                               │ │
+│  │  - list_tools() -> list[Tool]                   │ │
+│  │  - execute(tool_name, params) -> Result          │ │
+│  └─────────────────────────────────────────────────┘ │
 │                                                      │
 │  Secrets → Vault (AppRole via homelab-automation)    │
 │  Config  → Environment / config files               │
@@ -173,14 +198,29 @@ quanta-insights-connectors/
 │       ├── server.py                 # FastMCP server entry point
 │       ├── config.py                 # Configuration loading (env, Vault)
 │       ├── vault_client.py           # Vault AppRole integration
+│       ├── webhooks.py               # Webhook receiver (Fathom events)
 │       ├── connectors/
 │       │   ├── __init__.py
 │       │   ├── base.py               # Abstract connector interface
 │       │   ├── bullhorn/
 │       │   │   ├── __init__.py
-│       │   │   ├── auth.py           # Bullhorn OAuth flow
-│       │   │   ├── client.py         # Bullhorn REST API client
+│       │   │   ├── auth.py           # Bullhorn ATS OAuth flow
+│       │   │   ├── client.py         # Bullhorn ATS REST API client
 │       │   │   ├── models.py         # Pydantic models (Placement, Candidate, etc.)
+│       │   │   ├── tools.py          # MCP tool definitions
+│       │   │   └── mock.py           # Mock data layer for development
+│       │   ├── fathom/
+│       │   │   ├── __init__.py
+│       │   │   ├── auth.py           # Fathom API key auth
+│       │   │   ├── client.py         # Fathom REST API client
+│       │   │   ├── models.py         # Pydantic models (Meeting, Transcript, Summary)
+│       │   │   ├── tools.py          # MCP tool definitions
+│       │   │   └── mock.py           # Mock data layer for development
+│       │   ├── sourcewhale/
+│       │   │   ├── __init__.py
+│       │   │   ├── auth.py           # Sourcewhale API key auth
+│       │   │   ├── client.py         # Sourcewhale REST API client
+│       │   │   ├── models.py         # Pydantic models (Sequence, Campaign, etc.)
 │       │   │   ├── tools.py          # MCP tool definitions
 │       │   │   └── mock.py           # Mock data layer for development
 │       │   └── linkedin/
@@ -194,13 +234,17 @@ quanta-insights-connectors/
 ├── tests/
 │   ├── conftest.py
 │   ├── test_bullhorn/
+│   ├── test_fathom/
+│   ├── test_sourcewhale/
 │   └── test_linkedin/
 ├── docker-compose.yml
 ├── Dockerfile
 ├── pyproject.toml
 ├── README.md
 └── docs/
-    └── plan.md
+    ├── plan.md                       # This file — master plan
+    ├── data-flows.md                 # Recruiter workflow data flow map
+    └── integration-status.md         # API access status & blockers
 ```
 
 ---
@@ -309,11 +353,25 @@ Create Vault secrets at `secret/business/quanta-insights/bullhorn/`:
 ---
 ---
 
-## 🚀 EPIC 3: Bullhorn Connector (Read-Only) (WAITING FOR API ACCESS)
+## 🚀 EPIC 3: Bullhorn ATS Connector (Read-Only) (WAITING FOR API ACCESS)
 
-**Status**: 🚀 **WAITING FOR API ACCESS** - Mock implementation complete, need real credentials
+**Status**: 🚀 **WAITING FOR API ACCESS** - Mock implementation complete, pivoting to ATS API
 
-### Task 3.1 — Bullhorn OAuth Flow (PENDING)
+> **Architecture Decision: ATS API instead of Back-Office API**
+>
+> We are using Bullhorn's **ATS (Applicant Tracking System) API** rather than the
+> back-office API. The ATS API can be **scoped directly in the Bullhorn admin UI**,
+> allowing us to limit data access to specific entities and fields. This provides
+> better security posture and avoids needing Bullhorn support involvement for
+> initial credential provisioning.
+>
+> **Key differences from back-office API:**
+> - Permissions scoped via admin UI (no support ticket required)
+> - Data access can be limited per entity type
+> - Same OAuth flow, different endpoint base
+> - Read-only enforcement at the API permission level
+
+### Task 3.1 — Bullhorn ATS OAuth Flow (PENDING)
 
 * Implement Bullhorn's OAuth flow in `bullhorn/auth.py`:
   * Authorization code exchange
@@ -321,11 +379,13 @@ Create Vault secrets at `secret/business/quanta-insights/bullhorn/`:
   * REST token (Bullhorn-specific session token via `/rest-services/login`)
   * Automatic refresh before expiry
 * Credentials sourced from Vault
+* **ATS API scoping configured in Bullhorn admin UI**
 
 **Acceptance Criteria:**
 * Tokens retrieved successfully
 * Refresh works without manual intervention
 * Token state is not persisted to disk
+* API permissions limited to read-only entities via admin UI
 
 ---
 
@@ -478,9 +538,220 @@ Each tool:
 
 ---
 
-## EPIC 5: MCP Server & Transport
+## 🆕 EPIC 5: Fathom Connector (Read-Only + Webhook)
 
-### Task 5.1 — FastMCP Server Core
+**Status**: 🆕 **NEW** - API docs reviewed, ready to build mock connector
+
+> **Context:** Fathom is the meeting intelligence tool used during **discovery calls**
+> with candidates and clients. It records meetings, generates AI summaries, extracts
+> action items, and provides full transcripts. This is the **first step** in the
+> recruiter workflow — insights from discovery calls feed into Sourcewhale outreach
+> and Bullhorn ATS tracking.
+>
+> **Auth:** Simple API key via `X-Api-Key` header. No OAuth required.
+> **API Docs:** https://developers.fathom.ai/api-reference
+
+### Task 5.1 — Fathom API Key Auth
+
+* Implement API key authentication in `fathom/auth.py`
+* API key stored in Vault at `secret/business/quanta-insights/fathom/`
+* Auth via `X-Api-Key` header on every request
+* Rate limit awareness (headers: `RateLimit-Limit`, `RateLimit-Remaining`, `RateLimit-Reset`)
+
+**Acceptance Criteria:**
+* API key loaded from Vault at startup
+* Rate limit headers parsed and respected
+
+---
+
+### Task 5.2 — Fathom API Client
+
+* Implement async client in `fathom/client.py` using `httpx`
+* Base URL: `https://api.fathom.ai/external/v1`
+* Endpoints:
+  * `GET /meetings` — list meetings with filters (date, domain, team, recorded_by)
+  * `GET /recordings/{recording_id}/summary` — get meeting summary (sync or async via `destination_url`)
+  * `GET /recordings/{recording_id}/transcript` — get full transcript (sync or async)
+  * `GET /teams` — list teams
+  * `GET /team-members` — list team members
+* Support:
+  * Cursor-based pagination (`next_cursor`)
+  * Optional includes: `include_transcript`, `include_summary`, `include_action_items`, `include_crm_matches`
+  * Rate-limit handling with backoff
+
+**Acceptance Criteria:**
+* Can fetch meetings, summaries, and transcripts reliably
+* Pagination works correctly
+* Rate limits handled gracefully
+
+---
+
+### Task 5.3 — Fathom Entity Models (Pydantic)
+
+Create typed models in `fathom/models.py` for:
+
+* `Meeting` — title, recording_id, url, timestamps, calendar_invitees, recorded_by
+* `CalendarInvitee` — name, email, domain, is_external, matched_speaker
+* `TranscriptEntry` — speaker (display_name, email), text, timestamp
+* `MeetingSummary` — template_name, markdown_formatted
+* `ActionItem` — description, completed, recording_timestamp, playback_url, assignee
+* `CrmMatch` — contacts, companies, deals
+* `WebhookPayload` — full meeting data received via webhook
+
+**Acceptance Criteria:**
+* Raw API responses validate against models
+* Models include field descriptions for MCP tool documentation
+
+---
+
+### Task 5.4 — Fathom MCP Tools
+
+Define MCP tools in `fathom/tools.py`:
+
+* `fathom_list_meetings` — filter by date range, domain, team, recorded_by; include summary/transcript
+* `fathom_get_meeting_summary` — get AI summary for a specific recording
+* `fathom_get_meeting_transcript` — get full transcript for a specific recording
+* `fathom_search_meetings_by_domain` — find all meetings with a specific company domain
+* `fathom_get_action_items` — extract action items from a meeting
+
+Each tool:
+* Is read-only
+* Validates inputs via Pydantic
+* Logs request and response summary
+* Returns structured data with field descriptions
+
+**Acceptance Criteria:**
+* Tools callable via any MCP client
+* AI agent can retrieve discovery call context for any candidate/client
+
+---
+
+### Task 5.5 — Fathom Webhook Receiver
+
+* Implement webhook endpoint in `webhooks.py`
+* Register webhook via Fathom API (`POST /webhooks`):
+  * `destination_url`: our webhook endpoint
+  * `triggered_for`: `["my_recordings", "my_shared_with_team_recordings"]`
+  * `include_transcript`: true
+  * `include_summary`: true
+  * `include_action_items`: true
+* Verify webhook signature using `secret` from registration response
+* Store received meeting data for MCP tool access
+
+**Acceptance Criteria:**
+* Webhook receives real-time meeting data after calls complete
+* Signature verification prevents spoofed payloads
+* Data available to MCP tools immediately after webhook fires
+
+---
+
+### Task 5.6 — Fathom Mock Data Layer
+
+* Implement `fathom/mock.py` with realistic meeting data
+* Mock data includes: discovery calls, client meetings, candidate screens
+* Same interface as the real client — swap via config flag
+
+**Acceptance Criteria:**
+* MCP server fully functional with mock Fathom data
+* Switching to real API is a config change, not a code change
+
+---
+
+## 🆕 EPIC 6: Sourcewhale Connector (Read-Only)
+
+**Status**: 🆕 **NEW** - API documentation search in progress
+
+> **Context:** Sourcewhale is the **outreach and sequencing platform** used after
+> discovery calls (Fathom) to engage candidates and clients. It manages email/LinkedIn
+> sequences, tracks responses, and provides analytics on outreach effectiveness.
+> This is the **second step** in the recruiter workflow — after discovery, recruiters
+> use Sourcewhale to follow up with candidates and manage client sales messaging.
+>
+> **Auth:** API key (generation process TBD — need to locate API docs)
+> **API Docs:** TBD — searching for documentation
+
+### Task 6.1 — Sourcewhale API Discovery
+
+* Locate Sourcewhale API documentation
+* Determine authentication method (likely API key)
+* Map available endpoints and data models
+* Identify rate limits and pagination patterns
+
+**Acceptance Criteria:**
+* API documentation located and reviewed
+* Authentication method confirmed
+* Available endpoints catalogued
+
+---
+
+### Task 6.2 — Sourcewhale API Client
+
+* Implement async client in `sourcewhale/client.py` using `httpx`
+* Endpoints (TBD — based on API discovery):
+  * List/search sequences (outreach campaigns)
+  * Get sequence details and stats
+  * List candidates in a sequence
+  * Get candidate outreach history (emails sent, responses)
+  * Get campaign analytics (open rates, reply rates)
+* Support pagination and rate-limit handling
+
+**Acceptance Criteria:**
+* Can fetch sequence and outreach data reliably
+* Rate limits handled gracefully
+
+---
+
+### Task 6.3 — Sourcewhale Entity Models (Pydantic)
+
+Create typed models in `sourcewhale/models.py` for (TBD — based on API discovery):
+
+* `Sequence` — name, status, stats, created_at
+* `SequenceStep` — type (email/LinkedIn), template, delay
+* `CandidateOutreach` — candidate info, sequence, step, status, response
+* `CampaignAnalytics` — open_rate, reply_rate, bounce_rate, total_sent
+
+**Acceptance Criteria:**
+* Models validate against API responses
+* Models include field descriptions for MCP tool documentation
+
+---
+
+### Task 6.4 — Sourcewhale MCP Tools
+
+Define MCP tools in `sourcewhale/tools.py`:
+
+* `sourcewhale_list_sequences` — list active/completed outreach sequences
+* `sourcewhale_get_sequence_stats` — get performance metrics for a sequence
+* `sourcewhale_search_candidates` — find candidates by sequence, status, response
+* `sourcewhale_get_outreach_history` — get full outreach timeline for a candidate
+* `sourcewhale_get_campaign_analytics` — aggregated outreach performance metrics
+
+Each tool:
+* Is read-only
+* Validates inputs via Pydantic
+* Logs request and response summary
+
+**Acceptance Criteria:**
+* Tools callable via any MCP client
+* AI agent can correlate outreach data with Fathom discovery and Bullhorn ATS data
+
+---
+
+### Task 6.5 — Sourcewhale Mock Data Layer
+
+* Implement `sourcewhale/mock.py` with realistic outreach data
+* Mock data includes: email sequences, LinkedIn outreach, response tracking
+* Same interface as the real client — swap via config flag
+
+**Acceptance Criteria:**
+* MCP server fully functional with mock Sourcewhale data
+* Switching to real API is a config change, not a code change
+
+---
+
+## EPIC 7: MCP Server & Transport
+
+### Task 7.1 — FastMCP Server Core
 
 * Implement `server.py` using FastMCP
 * Auto-discover and register tools from all enabled connectors
@@ -495,7 +766,7 @@ Each tool:
 
 ---
 
-### Task 5.2 — Configuration Management
+### Task 7.2 — Configuration Management
 
 * Implement `config.py`:
   * Load from environment variables (12-factor)
@@ -510,7 +781,7 @@ Each tool:
 
 ---
 
-### Task 5.3 — Structured Logging & Observability
+### Task 7.3 — Structured Logging & Observability
 
 * Implement `logging.py`:
   * Structured JSON logging (stdout for Docker log aggregation)
@@ -525,9 +796,9 @@ Each tool:
 
 ---
 
-## EPIC 6: Integration Testing & Validation
+## EPIC 8: Integration Testing & Validation
 
-### Task 6.1 — Unit Tests
+### Task 8.1 — Unit Tests
 
 * Test each connector's models, auth flow, and client (using mocks/fixtures)
 * Test MCP tool input validation and error handling
@@ -539,7 +810,7 @@ Each tool:
 
 ---
 
-### Task 6.2 — MCP Client Integration Tests
+### Task 8.2 — MCP Client Integration Tests
 
 Test via MCP clients:
 
@@ -554,7 +825,7 @@ Test via MCP clients:
 
 ---
 
-### Task 6.3 — Insight Validation Prompts
+### Task 8.3 — Insight Validation Prompts
 
 Test prompts such as:
 
@@ -568,9 +839,9 @@ Test prompts such as:
 
 ---
 
-## EPIC 7: Guardrails & Safety
+## EPIC 9: Guardrails & Safety
 
-### Task 7.1 — Read-Only Enforcement
+### Task 9.1 — Read-Only Enforcement
 
 * Enforce read-only at **three layers**:
   1. **MCP tool definitions** — no write tools registered
@@ -582,7 +853,7 @@ Test prompts such as:
 
 ---
 
-### Task 7.2 — Input Validation & Sanitization
+### Task 9.2 — Input Validation & Sanitization
 
 * All MCP tool inputs validated via Pydantic models
 * Reject excessively broad queries (e.g. "get all candidates" with no filters)
@@ -617,6 +888,10 @@ secret/business/
     │   ├── client_secret
     │   ├── api_username
     │   └── api_password
+    ├── fathom/
+    │   └── api_key
+    ├── sourcewhale/
+    │   └── api_key
     └── linkedin/
         ├── client_id
         ├── client_secret
@@ -632,12 +907,16 @@ secret/business/
 
 * [ ] MCP server runs in Docker on service-runner
 * [ ] Vault stores all connector credentials securely (AppRole auth)
-* [ ] Bullhorn OAuth works end-to-end (or mock mode active)
+* [ ] Bullhorn ATS OAuth works end-to-end (or mock mode active)
+* [ ] Fathom API key auth works end-to-end (or mock mode active)
+* [ ] Sourcewhale API key auth works end-to-end (or mock mode active)
 * [ ] LinkedIn OAuth works end-to-end (or mock mode active)
 * [ ] Any MCP client can invoke tools via stdio or HTTP+SSE
-* [ ] Bullhorn data retrieved and structured correctly
+* [ ] Bullhorn ATS data retrieved and structured correctly
+* [ ] Fathom meeting data (summaries, transcripts) retrieved correctly
+* [ ] Sourcewhale outreach data retrieved correctly
 * [ ] LinkedIn Recruiter data retrieved and structured correctly
-* [ ] Recruiter-style insights can be generated across both data sources
+* [ ] AI agent can read across full recruiter workflow (Fathom → Sourcewhale → Bullhorn → LinkedIn)
 * [ ] No writes to any upstream system
 * [ ] CI/CD pipeline builds, tests, and deploys on merge to main
 * [ ] Structured logging captures all MCP and API activity
@@ -648,7 +927,9 @@ secret/business/
 
 These are **non-code tasks** that should begin in parallel with development:
 
-- [ ] **Bullhorn API access**: Coordinate with org admin to register API application, obtain client_id/secret
+- [ ] **Bullhorn ATS API access**: Scope permissions in admin UI, generate API credentials
+- [ ] **Fathom API key**: Generate from Fathom settings (no approval needed)
+- [ ] **Sourcewhale API**: Locate API documentation, generate API key
 - [ ] **LinkedIn RSC API**: Apply through LinkedIn's partner program for Recruiter System Connect API access
 - [ ] **Vault setup**: Create AppRole and policies for `quanta-insights-connectors` in homelab Vault
 
@@ -670,17 +951,19 @@ These are **non-code tasks** that should begin in parallel with development:
 
 | Phase | Scope | Estimate |
 |-------|-------|----------|
-| **Phase 1a** | Scaffolding, connectors, Bullhorn read-only MCP (mock + real) | 2–3 weeks |
-| **Phase 1b** | LinkedIn RSC connector (mock + real when API approved) | 1–3 weeks |
-| **Phase 1c** | Homelab deployment (Docker, CI/CD, Vault, Traefik) | 3–5 days |
+| **Phase 1a** | Scaffolding, Bullhorn ATS + Fathom + Sourcewhale mock connectors | 2–3 weeks |
+| **Phase 1b** | Real API integration (as credentials become available) | 1–3 weeks |
+| **Phase 1c** | LinkedIn RSC connector (mock + real when API approved) | 1–3 weeks |
+| **Phase 1d** | Homelab deployment (Docker, CI/CD, Vault, Traefik) | 3–5 days |
 | **Phase 2** | Multi-tenant auth, product packaging | 3–4 weeks |
 | **Phase 3** | Write capabilities, approval workflows | 4–6 weeks |
 
-**Phase 1 total: ~4–6 weeks to a working internal tool.**
-**Shippable MVP (through Phase 2): ~10–14 weeks.**
+**Phase 1 total: ~5–8 weeks to a working internal tool (4 connectors).**
+**Shippable MVP (through Phase 2): ~12–16 weeks.**
 
 ---
 
 **This plan intentionally optimizes for trust, safety, and visible recruiter value before
 automation or write capabilities. The plugin architecture ensures new connectors can be
-added without touching the core server.**
+added without touching the core server. See `docs/data-flows.md` for the recruiter workflow
+map and `docs/integration-status.md` for detailed API access tracking.**

@@ -1,0 +1,86 @@
+version: '3.8'
+
+services:
+  quanta-insights:
+    build:
+      context: .
+      target: production
+    container_name: quanta-insights-connectors
+    restart: unless-stopped
+    
+    # Environment variables (for local development)
+    environment:
+      # MCP Server Configuration
+      - TRANSPORT=stdio
+      - LOG_LEVEL=DEBUG
+      
+      # Vault Configuration (comment out for mock mode)
+      # - VAULT_ADDR=https://vault.chateaumac.com
+      # - VAULT_ROLE_ID=${VAULT_ROLE_ID}
+      # - VAULT_SECRET_ID=${VAULT_SECRET_ID}
+      
+      # Connector Configuration
+      - ENABLED_CONNECTORS=bullhorn,linkedin
+      - BULLHORN_MOCK_MODE=true
+      - LINKEDIN_MOCK_MODE=true
+      
+      # Rate Limiting
+      - TOOL_CALLS_PER_MINUTE=60
+    
+    volumes:
+      # Mount source code for development (comment out in production)
+      - ./src:/app/src:ro
+      - ./pyproject.toml:/app/pyproject.toml:ro
+    
+    # For stdio transport, we don't expose ports
+    # For HTTP transport (when implemented):
+    # ports:
+    #   - "8080:8080"
+    
+    # Labels for Traefik (when deployed to homelab)
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.quanta-insights.rule=Host(`quanta-insights.chateaumac.com`)"
+      - "traefik.http.routers.quanta-insights.entrypoints=websecure"
+      - "traefik.http.routers.quanta-insights.tls.certresolver=letsencrypt"
+      - "traefik.http.services.quanta-insights.loadbalancer.server.port=8080"
+    
+    # Health check
+    healthcheck:
+      test: ["CMD", "python", "-c", "import sys; sys.exit(0)"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    
+    # Resource limits
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: '0.5'
+        reservations:
+          memory: 256M
+          cpus: '0.25'
+
+  # Optional: Add a development shell service
+  dev-shell:
+    build:
+      context: .
+      target: builder  # Use builder stage with dev dependencies
+    container_name: quanta-insights-dev
+    profiles: ["dev"]  # Only start with --profile dev
+    
+    command: /bin/bash
+    stdin_open: true
+    tty: true
+    
+    environment:
+      - PYTHONPATH=/app/src
+      - LOG_LEVEL=DEBUG
+    
+    volumes:
+      - .:/app
+      - ~/.cache/pip:/root/.cache/pip
+    
+    working_dir: /app

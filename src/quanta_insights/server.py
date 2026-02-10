@@ -2,12 +2,12 @@
 
 import asyncio
 import sys
-from typing import Any, Dict, List, Union
+from typing import Any
 
 import click
 from mcp.server import Server
 from mcp.server.stdio import stdio_server
-from mcp.types import Tool, TextContent
+from mcp.types import TextContent, Tool
 
 from .config import settings
 from .logging import get_logger, setup_logging
@@ -18,23 +18,23 @@ logger = get_logger(__name__)
 
 class QuantaInsightsServer:
     """Main MCP server that manages all connectors."""
-    
+
     def __init__(self) -> None:
         """Initialize the MCP server."""
         self.server = Server("quanta-insights-connectors")
-        self.connectors: Dict[str, Any] = {}  # Will hold connector instances
-        
+        self.connectors: dict[str, Any] = {}  # Will hold connector instances
+
         # Register MCP handlers
         self._register_handlers()
-    
+
     def _register_handlers(self) -> None:
         """Register MCP protocol handlers."""
-        
+
         @self.server.list_tools()
-        async def list_tools() -> List[Tool]:
+        async def list_tools() -> list[Tool]:
             """List all available tools from all enabled connectors."""
             tools = []
-            
+
             for connector_name, connector in self.connectors.items():
                 try:
                     connector_tools = await connector.list_tools()  # type: ignore[arg-type]
@@ -55,23 +55,23 @@ class QuantaInsightsServer:
                         connector=connector_name,
                         error=str(e),
                     )
-            
+
             logger.info(
                 "Listed all available tools",
                 total_tools=len(tools),
                 connectors=list(self.connectors.keys()),
             )
             return tools
-        
+
         @self.server.call_tool()
-        async def call_tool(name: str, arguments: Dict[str, Any]) -> List[TextContent]:
+        async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent]:
             """Execute a tool call."""
             logger.info(
                 "Tool call received",
                 tool=name,
                 arguments=arguments,
             )
-            
+
             # Find which connector handles this tool
             connector = None
             for conn in self.connectors.values():
@@ -82,7 +82,7 @@ class QuantaInsightsServer:
                         break
                 except Exception:
                     continue
-            
+
             if not connector:
                 logger.error(
                     "Tool not found in any connector",
@@ -90,7 +90,7 @@ class QuantaInsightsServer:
                     available_connectors=list(self.connectors.keys()),
                 )
                 raise ValueError(f"Tool '{name}' not found")
-            
+
             try:
                 result = await connector.execute(name, arguments)  # type: ignore[arg-type]
                 logger.info(
@@ -144,6 +144,12 @@ class QuantaInsightsServer:
                 if connector_name == "bullhorn":
                     from .connectors.bullhorn import BullhornConnector
                     connector: Any = BullhornConnector()
+                elif connector_name == "fathom":
+                    from .connectors.fathom import FathomConnector
+                    connector = FathomConnector()
+                elif connector_name == "sourcewhale":
+                    from .connectors.sourcewhale import SourcewhaleConnector
+                    connector = SourcewhaleConnector()
                 elif connector_name == "linkedin":
                     from .connectors.linkedin import LinkedInConnector
                     connector = LinkedInConnector()
@@ -153,11 +159,11 @@ class QuantaInsightsServer:
                         connector=connector_name,
                     )
                     continue
-                
+
                 # Authenticate the connector
                 await connector.authenticate()  # type: ignore[arg-type]
                 self.connectors[connector_name] = connector
-                
+
                 logger.info(
                     "Connector initialized",
                     connector=connector_name,

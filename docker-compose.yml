@@ -20,9 +20,12 @@ services:
       # - VAULT_SECRET_ID=${VAULT_SECRET_ID}
       
       # Connector Configuration
-      - ENABLED_CONNECTORS=bullhorn,linkedin
+      - ENABLED_CONNECTORS=bullhorn,fathom,sourcewhale,linkedin
       - BULLHORN_MOCK_MODE=true
+      - FATHOM_MOCK_MODE=true
+      - SOURCEWHALE_MOCK_MODE=true
       - LINKEDIN_MOCK_MODE=true
+      - ALLOW_WRITES=false
       
       # Rate Limiting
       - TOOL_CALLS_PER_MINUTE=60

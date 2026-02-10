@@ -27,12 +27,8 @@ class LinkedInConnector(BaseConnector):
         logger.info("LinkedIn authentication not yet implemented")
         self._set_authenticated(True)
 
-    async def list_tools(self) -> list[ToolDefinition]:
-        """List available LinkedIn tools."""
-        if not self.is_authenticated:
-            from ..base import NotAuthenticatedError
-            raise NotAuthenticatedError("LinkedIn connector not authenticated")
-
+    async def _get_all_tools(self) -> list[ToolDefinition]:
+        """Return all LinkedIn tool definitions."""
         return [
             ToolDefinition(
                 name="linkedin_search_candidates",
@@ -61,12 +57,8 @@ class LinkedInConnector(BaseConnector):
             ),
         ]
 
-    async def execute(self, tool_name: str, arguments: dict[str, Any]) -> Any:
+    async def _execute_tool(self, tool_name: str, arguments: dict[str, Any]) -> Any:
         """Execute a LinkedIn tool."""
-        if not self.is_authenticated:
-            from ..base import NotAuthenticatedError
-            raise NotAuthenticatedError("LinkedIn connector not authenticated")
-
         if tool_name == "linkedin_search_candidates":
             return await self._search_candidates(arguments)
         elif tool_name == "linkedin_list_recruiter_projects":

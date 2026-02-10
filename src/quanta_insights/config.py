@@ -1,7 +1,5 @@
 """Configuration management for Quanta Insights Connectors."""
 
-import os
-from typing import List, Optional
 
 from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -60,7 +58,7 @@ class Settings(BaseSettings):
     )
 
     @property
-    def enabled_connectors_list(self) -> List[str]:
+    def enabled_connectors_list(self) -> list[str]:
         """Get enabled connectors as a list."""
         return [conn.strip() for conn in self.enabled_connectors.split(",") if conn.strip()]
 
@@ -69,9 +67,23 @@ class Settings(BaseSettings):
         default=True,
         description="Use mock data for Bullhorn connector"
     )
+    fathom_mock_mode: bool = Field(
+        default=True,
+        description="Use mock data for Fathom connector"
+    )
+    sourcewhale_mock_mode: bool = Field(
+        default=True,
+        description="Use mock data for Sourcewhale connector"
+    )
     linkedin_mock_mode: bool = Field(
         default=True,
         description="Use mock data for LinkedIn connector"
+    )
+
+    # Write Protection (read-only by default, must be explicitly enabled)
+    allow_writes: bool = Field(
+        default=False,
+        description="Enable write operations on connectors. False by default for safety."
     )
 
     # Rate Limiting
@@ -100,7 +112,7 @@ class Settings(BaseSettings):
     def validate_connectors(cls, v: str) -> str:
         """Validate connector names."""
         connectors = [conn.strip() for conn in v.split(",") if conn.strip()]
-        valid_connectors = {"bullhorn", "linkedin"}
+        valid_connectors = {"bullhorn", "fathom", "sourcewhale", "linkedin"}
         invalid = set(connectors) - valid_connectors
         if invalid:
             raise ValueError(f"Invalid connectors: {invalid}. Valid: {valid_connectors}")
@@ -112,11 +124,13 @@ class Settings(BaseSettings):
 
     def is_mock_mode(self, connector: str) -> bool:
         """Check if a connector should use mock mode."""
-        if connector == "bullhorn":
-            return self.bullhorn_mock_mode
-        elif connector == "linkedin":
-            return self.linkedin_mock_mode
-        return True
+        mock_mode_map = {
+            "bullhorn": self.bullhorn_mock_mode,
+            "fathom": self.fathom_mock_mode,
+            "sourcewhale": self.sourcewhale_mock_mode,
+            "linkedin": self.linkedin_mock_mode,
+        }
+        return mock_mode_map.get(connector, True)
 
 
 # Global settings instance

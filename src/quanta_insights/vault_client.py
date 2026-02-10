@@ -1,7 +1,6 @@
 """Vault client for secure credential management."""
 
-import os
-from typing import Any, Dict, Optional
+from typing import Any
 
 import hvac
 from hvac.exceptions import VaultError
@@ -90,7 +89,7 @@ class VaultClient:
                 raise VaultError(f"No data found at path: {full_path}")
 
             # Extract the actual secret data
-            secret_data: Dict[str, Any] = response["data"]["data"]
+            secret_data: dict[str, Any] = response["data"]["data"]
 
             logger.debug(
                 "Retrieved secret from Vault",

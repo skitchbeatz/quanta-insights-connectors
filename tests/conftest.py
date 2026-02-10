@@ -26,8 +26,11 @@ def mock_settings():
         vault_role_id="mock-role-id",
         vault_secret_id="mock-secret-id",
         vault_namespace="secret/test",
-        enabled_connectors=["bullhorn", "linkedin"],
+        enabled_connectors="bullhorn,fathom,sourcewhale,linkedin",
         bullhorn_mock_mode=True,
+        fathom_mock_mode=True,
+        sourcewhale_mock_mode=True,
         linkedin_mock_mode=True,
+        allow_writes=False,
         tool_calls_per_minute=60,
     )

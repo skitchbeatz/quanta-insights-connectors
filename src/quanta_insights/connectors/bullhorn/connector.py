@@ -27,12 +27,8 @@ class BullhornConnector(BaseConnector):
         logger.info("Bullhorn authentication not yet implemented")
         self._set_authenticated(True)
 
-    async def list_tools(self) -> list[ToolDefinition]:
-        """List available Bullhorn tools."""
-        if not self.is_authenticated:
-            from ..base import NotAuthenticatedError
-            raise NotAuthenticatedError("Bullhorn connector not authenticated")
-
+    async def _get_all_tools(self) -> list[ToolDefinition]:
+        """Return all Bullhorn tool definitions."""
         return [
             ToolDefinition(
                 name="bullhorn_search_placements",
@@ -62,12 +58,8 @@ class BullhornConnector(BaseConnector):
             ),
         ]
 
-    async def execute(self, tool_name: str, arguments: dict[str, Any]) -> Any:
+    async def _execute_tool(self, tool_name: str, arguments: dict[str, Any]) -> Any:
         """Execute a Bullhorn tool."""
-        if not self.is_authenticated:
-            from ..base import NotAuthenticatedError
-            raise NotAuthenticatedError("Bullhorn connector not authenticated")
-
         if tool_name == "bullhorn_search_placements":
             return await self._search_placements(arguments)
         elif tool_name == "bullhorn_get_placement_stats":

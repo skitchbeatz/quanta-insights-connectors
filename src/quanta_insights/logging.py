@@ -1,7 +1,8 @@
 """Structured logging configuration for Quanta Insights Connectors."""
 
 import sys
-from typing import Any, Dict, Mapping, MutableMapping
+from collections.abc import Mapping, MutableMapping
+from typing import Any
 
 import structlog
 from structlog.stdlib import LoggerFactory
@@ -50,8 +51,8 @@ def setup_logging() -> None:
 
 
 def _filter_sensitive_data(
-    logger: Any, 
-    method_name: str, 
+    logger: Any,
+    method_name: str,
     event_dict: MutableMapping[str, Any]
 ) -> Mapping[str, Any]:
     """Filter sensitive data from log entries."""
